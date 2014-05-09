@@ -25,18 +25,31 @@ module.exports = function dragAndDrop(){
             e.preventDefault()
 
             var file = e.dataTransfer.files[0]
-            console.log(file)
             var reader = new FileReader()
             reader.readAsText(file)
             reader.onload = function (event) {
                 // console.log('event', event.target)
                 if (_.last(file.name.split('.')) == 'csv') {
                     var data = d3.csv.parse(event.target.result, csvAccessor)
+                    dispatch.drop({
+                        content: data,
+                        name: _.first(file.name.split('.')),
+                        type: 'csv',
+                        size: file.size,
+                        date: file.lastModifiedDate
+                    })
                     //dispatch received data
                     // dispatch.stringDataReceived(JSON.stringify(data))
                 }
                 if (_.last(file.name.split('.')) == 'json') {
-                    var data = event.target.result
+                    var data = JSON.parse(event.target.result, dateReviver)
+                    dispatch.drop({
+                        content: data,
+                        name: _.first(file.name.split('.')),
+                        type: 'csv',
+                        size: file.size,
+                        date: file.lastModifiedDate
+                    })
                     //dispatch received data
                     // dispatch.stringDataReceived(event.target.result)
                 }

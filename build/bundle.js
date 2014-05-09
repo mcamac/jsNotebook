@@ -9886,6 +9886,7 @@ CodeMirror.defineMIME("application/typescript", { name: "javascript", typescript
 
 },{"../../lib/codemirror":9}],11:[function(require,module,exports){
 var renderBlock = require('./render_block')()
+var renderFiles = require('./render_files')()
 var dragAndDrop = require('./dragAndDrop')()
 var emptyData = require('./emptyNotebookData')
 
@@ -9897,9 +9898,7 @@ module.exports = function ctrl_main(){
     main.init = function (_data){
         data = _data
 
-        // render block
-        renderBlock.render(d3.select('.blocks'), data.blocks)
-
+        // set block
         renderBlock.on('delete', deleteBlock)
         renderBlock.on('new', newBlock)
         renderBlock.on('update', saveDataLocally)
@@ -9909,14 +9908,16 @@ module.exports = function ctrl_main(){
                 main.render(emptyData)
             })
 
-        // render files
+        // set files
+        renderFiles.on('delete', deleteFile)
 
         // drop
         dragAndDrop.set()
         dragAndDrop
-            .on('drop', function(d){
-                console.log('drop')
-            })
+            .on('drop', drop)
+
+        initFiles()
+        this.render(data)
 
         return main
     }
@@ -9924,6 +9925,14 @@ module.exports = function ctrl_main(){
     main.render = function(_data){
         data = _data
         renderBlock.render(d3.select('.blocks'), data.blocks)
+        renderFiles.render(d3.select('.ctn-file'), data.files)
+        saveDataLocally()
+    }
+
+    function initFiles () {
+        _.each(data.files, function(d,i){
+            window[d.name] = d.content
+        })
     }
 
     function deleteBlock(d){
@@ -9949,13 +9958,38 @@ module.exports = function ctrl_main(){
     }
 
     function saveDataLocally(){
-        localStorage.notebook = JSON.stringify(data)
+        var dataToSave = {
+            meta: data.meta,
+            blocks: data.blocks,
+            files: _.map(data.files, function(d,i){
+                if (d.size < 2500000) return d
+                return { content: '', name: d.name, type: d.type, size: d.size, date: d.date }
+            })
+        }
+        localStorage.notebook = JSON.stringify(dataToSave)
+    }
+
+    function deleteFile(d){
+        _.remove(data.files, d)
+        main.render(data)
+    }
+
+    function drop(d){
+        var prev = _.find(data.files, function(d2,i){
+            return d2.name == d.name
+        })
+        if (prev) {
+            _.remove(data.files, d)
+        }
+        data.files.push(d)
+        window[d.name] = d.content
+        main.render(data)
     }
 
     return main
 }
 
-},{"./dragAndDrop":12,"./emptyNotebookData":13,"./render_block":15}],12:[function(require,module,exports){
+},{"./dragAndDrop":12,"./emptyNotebookData":13,"./render_block":15,"./render_files":16}],12:[function(require,module,exports){
 
 module.exports = function dragAndDrop(){
 
@@ -9990,11 +10024,25 @@ module.exports = function dragAndDrop(){
                 // console.log('event', event.target)
                 if (_.last(file.name.split('.')) == 'csv') {
                     var data = d3.csv.parse(event.target.result, csvAccessor)
+                    dispatch.drop({
+                        content: data,
+                        name: _.first(file.name.split('.')),
+                        type: 'csv',
+                        size: file.size,
+                        date: file.lastModifiedDate
+                    })
                     //dispatch received data
                     // dispatch.stringDataReceived(JSON.stringify(data))
                 }
                 if (_.last(file.name.split('.')) == 'json') {
-                    var data = event.target.result
+                    var data = JSON.parse(event.target.result, dateReviver)
+                    dispatch.drop({
+                        content: data,
+                        name: _.first(file.name.split('.')),
+                        type: 'csv',
+                        size: file.size,
+                        date: file.lastModifiedDate
+                    })
                     //dispatch received data
                     // dispatch.stringDataReceived(event.target.result)
                 }
@@ -10013,6 +10061,12 @@ module.exports = function dragAndDrop(){
                     }
                 })
                 return o
+            }
+            function dateReviver(key, value) {
+                if(/\d\d\d\d-\d\d-\d\dT\d\d:\d\d:\d\d.\d\d\d/.test(value)) {
+                    return new Date(value)
+                }
+                return value
             }
         
             return false
@@ -10036,6 +10090,13 @@ module.exports = {
             type: 'JSON',
             size: 50000,
             date: new Date()
+        },
+        {
+            content: 'test',
+            name: 'aggregate2',
+            type: 'csv',
+            size: 5000000,
+            date: new Date()
         }
     ],
     blocks: [
@@ -10050,7 +10111,13 @@ var ctrlMain = require('./ctrl_main')()
 var emptyData = require('./emptyNotebookData')
 
 if (localStorage.notebook) {
-    emptyData = JSON.parse(localStorage.notebook)
+    emptyData = JSON.parse(localStorage.notebook, dateReviver)
+    function dateReviver(key, value) {
+        if(/\d\d\d\d-\d\d-\d\dT\d\d:\d\d:\d\d.\d\d\d/.test(value)) {
+            return new Date(value)
+        }
+        return value
+    }
 }
 
 ctrlMain.init(emptyData)
@@ -10215,11 +10282,99 @@ module.exports = function render_block(){
                     .style({opacity: 0})
             }
         }
-
-        d3.rebind(main, dispatch, 'on')
-
         return main
     }
+    
+    d3.rebind(main, dispatch, 'on')
+
     return main
 }
-},{"../bower_components/codemirror/addon/comment/comment.js":1,"../bower_components/codemirror/addon/edit/closebrackets.js":2,"../bower_components/codemirror/addon/edit/matchbrackets.js":3,"../bower_components/codemirror/addon/hint/javascript-hint.js":4,"../bower_components/codemirror/addon/hint/show-hint.js":5,"../bower_components/codemirror/addon/selection/active-line.js":7,"../bower_components/codemirror/keymap/sublime.js":8,"../bower_components/codemirror/lib/codemirror.js":9,"../bower_components/codemirror/mode/javascript/javascript.js":10}]},{},[14])
+},{"../bower_components/codemirror/addon/comment/comment.js":1,"../bower_components/codemirror/addon/edit/closebrackets.js":2,"../bower_components/codemirror/addon/edit/matchbrackets.js":3,"../bower_components/codemirror/addon/hint/javascript-hint.js":4,"../bower_components/codemirror/addon/hint/show-hint.js":5,"../bower_components/codemirror/addon/selection/active-line.js":7,"../bower_components/codemirror/keymap/sublime.js":8,"../bower_components/codemirror/lib/codemirror.js":9,"../bower_components/codemirror/mode/javascript/javascript.js":10}],16:[function(require,module,exports){
+module.exports = function render_files(){
+
+    var dispatch = d3.dispatch('delete')
+    var dateFormat = d3.time.format('%b %d, %Y')
+    var numberFormat = d3.format(',.1f')
+
+    var main = {}
+    main.render = function (sel, data){
+        // receive .files d3.sel
+        var files = sel.selectAll('.row-file').data(data, function(d,i){return d.name})
+        files.enter()
+            .insert(function(){
+                return document.querySelector('#tpl-row-file .row-file').cloneNode(true)
+            })
+            // .each(function (d,i) {
+            //     if (d.content != '') return
+            //     var sel = d3.select(this)
+            //     var height = this.getBoundingClientRect().height
+            //     sel.style({
+            //             'height': 0+'px',
+            //             overflow: 'hidden',
+            //             opacity: 0
+            //         })
+            //         .transition()
+            //         .ease('linear')
+            //         // .duration(200)
+            //         .style({
+            //             height: height+'px',
+            //             opacity: 1
+            //         })
+            //         .each('end', function () {
+            //             d3.select(this)
+            //                 .style('height', 'inherit')
+            //         })
+
+            // })
+
+        file.select('.varName')
+            .style({
+                backgroun: function(d,i){
+                    return d.content ? 'hsl(0,.5,.8)' : 'inherit'
+                }
+            })
+        files.select('.name')
+            .text(function(d,i){return 'var '+ d.name})
+        files.select('.type')
+            .text(function(d,i){return d.type.toUpperCase()})
+        files.select('.size')
+            .text(function(d,i){return numberFormat(d.size/1000000)+' MB'})
+        files.select('.date')
+            .text(function(d,i){return dateFormat(d.date)})
+        files.select('.delete')
+            .on('click', function(d,i){
+                dispatch.delete(d)
+            })
+
+        files
+            .on('mouseenter', function(){
+                d3.select(this).classed('showBtn', true)
+            })
+            .on('mouseleave', function(){
+                d3.select(this).classed('showBtn', false)
+            })
+
+        files.exit()
+            .each(function () {
+                var sel = d3.select(this)
+                var height = this.getBoundingClientRect().height
+                sel.style({
+                        'height': height+'px',
+                        overflow: 'hidden'
+                    })
+                    .transition()
+                    .ease('linear')
+                    // .duration(200)
+                    .style({
+                        height: '0px',
+                        opacity: '0'
+                    })
+                    .remove()
+            })
+        return main
+    }
+    
+    d3.rebind(main, dispatch, 'on')
+    return main
+}
+},{}]},{},[14])

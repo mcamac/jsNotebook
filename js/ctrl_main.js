@@ -18,7 +18,7 @@ module.exports = function ctrl_main(){
 
         d3.select('.btn-fullClean')
             .on('click', function(){
-                main.render(emptyData)
+                main.render(_.cloneDeep(emptyData))
             })
 
         // set files
@@ -27,10 +27,9 @@ module.exports = function ctrl_main(){
         // drop
         dragAndDrop.set()
         dragAndDrop
-            .on('drop', function(d){
-                console.log('drop')
-            })
+            .on('drop', drop)
 
+        initFiles()
         this.render(data)
 
         return main
@@ -40,6 +39,13 @@ module.exports = function ctrl_main(){
         data = _data
         renderBlock.render(d3.select('.blocks'), data.blocks)
         renderFiles.render(d3.select('.ctn-file'), data.files)
+        saveDataLocally()
+    }
+
+    function initFiles () {
+        _.each(data.files, function(d,i){
+            window[d.name] = d.content
+        })
     }
 
     function deleteBlock(d){
@@ -65,11 +71,31 @@ module.exports = function ctrl_main(){
     }
 
     function saveDataLocally(){
-        localStorage.notebook = JSON.stringify(data)
+        var dataToSave = {
+            meta: data.meta,
+            blocks: data.blocks,
+            files: _.map(data.files, function(d,i){
+                if (d.size < 2500000) return d
+                return { content: null, name: d.name, type: d.type, size: d.size, date: d.date }
+            })
+        }
+        localStorage.notebook = JSON.stringify(dataToSave)
     }
 
     function deleteFile(d){
         _.remove(data.files, d)
+        main.render(data)
+    }
+
+    function drop(d){
+        var prev = _.find(data.files, function(d2,i){
+            return d2.name == d.name
+        })
+        if (prev) {
+            _.remove(data.files, prev)
+        }
+        data.files.push(d)
+        window[d.name] = d.content
         main.render(data)
     }
 

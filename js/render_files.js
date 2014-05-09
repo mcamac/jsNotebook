@@ -12,29 +12,35 @@ module.exports = function render_files(){
             .insert(function(){
                 return document.querySelector('#tpl-row-file .row-file').cloneNode(true)
             })
-            // .each(function (d,i) {
-            //     if (d.content != '') return
-            //     var sel = d3.select(this)
-            //     var height = this.getBoundingClientRect().height
-            //     sel.style({
-            //             'height': 0+'px',
-            //             overflow: 'hidden',
-            //             opacity: 0
-            //         })
-            //         .transition()
-            //         .ease('linear')
-            //         // .duration(200)
-            //         .style({
-            //             height: height+'px',
-            //             opacity: 1
-            //         })
-            //         .each('end', function () {
-            //             d3.select(this)
-            //                 .style('height', 'inherit')
-            //         })
+            .each(function (d,i) {
+                // if (d.content != '') return
+                var sel = d3.select(this)
+                var height = this.getBoundingClientRect().height
+                sel.style({
+                        'height': 0+'px',
+                        overflow: 'hidden',
+                        opacity: 0
+                    })
+                    .transition()
+                    .ease('linear')
+                    // .duration(200)
+                    .style({
+                        height: height+'px',
+                        opacity: 1
+                    })
+                    .each('end', function () {
+                        d3.select(this)
+                            .style('height', 'inherit')
+                    })
 
-            // })
+            })
 
+        files.select('.varName')
+            .style({
+                'background-color': function(d,i){
+                    return _.isNull(d.content) ? 'hsl(0,50%,80%)' : ''
+                }
+            })
         files.select('.name')
             .text(function(d,i){return 'var '+ d.name})
         files.select('.type')

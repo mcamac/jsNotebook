@@ -493,7 +493,7 @@ html {
   width: 100%;
 }
 .files .col-meta td {
-  font-size: 14px;
+  font-size: 13px;
   padding: 0 10px;
   text-align: center;
 }
@@ -543,8 +543,8 @@ html {
   font-size: 14px;
 }
 .btn-editor {
-  -webkit-transition: opacity .5s;
-  transition: opacity .5s;
+  -webkit-transition: opacity .3s;
+  transition: opacity .3s;
   opacity: 0;
   -webkit-user-select: none;
   -moz-user-select: none;
@@ -565,8 +565,8 @@ html {
   box-shadow: inset 1px 1px 1px #4d4d4d;
 }
 .delete {
-  -webkit-transition: opacity .5s;
-  transition: opacity .5s;
+  -webkit-transition: opacity .3s;
+  transition: opacity .3s;
   opacity: 0;
   -webkit-user-select: none;
   -moz-user-select: none;
@@ -634,8 +634,8 @@ html {
   box-sizing: border-box;
 }
 .blk-editor .eval {
-  -webkit-transition: opacity .5s;
-  transition: opacity .5s;
+  -webkit-transition: opacity .3s;
+  transition: opacity .3s;
   opacity: 0;
   -webkit-user-select: none;
   -moz-user-select: none;
@@ -669,8 +669,8 @@ html {
   box-shadow: inset 1px 1px 1px #4d4d4d;
 }
 .blk-editor .new {
-  -webkit-transition: opacity .5s;
-  transition: opacity .5s;
+  -webkit-transition: opacity .3s;
+  transition: opacity .3s;
   opacity: 0;
   -webkit-user-select: none;
   -moz-user-select: none;
