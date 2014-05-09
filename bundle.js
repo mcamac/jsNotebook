@@ -9905,7 +9905,7 @@ module.exports = function ctrl_main(){
 
         d3.select('.btn-fullClean')
             .on('click', function(){
-                main.render(emptyData)
+                main.render(_.cloneDeep(emptyData))
             })
 
         // set files
@@ -9963,7 +9963,7 @@ module.exports = function ctrl_main(){
             blocks: data.blocks,
             files: _.map(data.files, function(d,i){
                 if (d.size < 2500000) return d
-                return { content: '', name: d.name, type: d.type, size: d.size, date: d.date }
+                return { content: null, name: d.name, type: d.type, size: d.size, date: d.date }
             })
         }
         localStorage.notebook = JSON.stringify(dataToSave)
@@ -9979,7 +9979,7 @@ module.exports = function ctrl_main(){
             return d2.name == d.name
         })
         if (prev) {
-            _.remove(data.files, d)
+            _.remove(data.files, prev)
         }
         data.files.push(d)
         window[d.name] = d.content
@@ -10017,7 +10017,6 @@ module.exports = function dragAndDrop(){
             e.preventDefault()
 
             var file = e.dataTransfer.files[0]
-            console.log(file)
             var reader = new FileReader()
             reader.readAsText(file)
             reader.onload = function (event) {
@@ -10084,20 +10083,13 @@ module.exports = function dragAndDrop(){
 module.exports = {
     meta: {},
     files: [
-        {
-            content: 'test',
-            name: 'aggregate',
-            type: 'JSON',
-            size: 50000,
-            date: new Date()
-        },
-        {
-            content: 'test',
-            name: 'aggregate2',
-            type: 'csv',
-            size: 5000000,
-            date: new Date()
-        }
+        // {
+        //     content: 'test',
+        //     name: 'aggregate',
+        //     type: 'JSON',
+        //     size: 50000,
+        //     date: new Date()
+        // }
     ],
     blocks: [
         {
@@ -10304,33 +10296,33 @@ module.exports = function render_files(){
             .insert(function(){
                 return document.querySelector('#tpl-row-file .row-file').cloneNode(true)
             })
-            // .each(function (d,i) {
-            //     if (d.content != '') return
-            //     var sel = d3.select(this)
-            //     var height = this.getBoundingClientRect().height
-            //     sel.style({
-            //             'height': 0+'px',
-            //             overflow: 'hidden',
-            //             opacity: 0
-            //         })
-            //         .transition()
-            //         .ease('linear')
-            //         // .duration(200)
-            //         .style({
-            //             height: height+'px',
-            //             opacity: 1
-            //         })
-            //         .each('end', function () {
-            //             d3.select(this)
-            //                 .style('height', 'inherit')
-            //         })
+            .each(function (d,i) {
+                // if (d.content != '') return
+                var sel = d3.select(this)
+                var height = this.getBoundingClientRect().height
+                sel.style({
+                        'height': 0+'px',
+                        overflow: 'hidden',
+                        opacity: 0
+                    })
+                    .transition()
+                    .ease('linear')
+                    // .duration(200)
+                    .style({
+                        height: height+'px',
+                        opacity: 1
+                    })
+                    .each('end', function () {
+                        d3.select(this)
+                            .style('height', 'inherit')
+                    })
 
-            // })
+            })
 
-        file.select('.varName')
+        files.select('.varName')
             .style({
-                backgroun: function(d,i){
-                    return d.content ? 'hsl(0,.5,.8)' : 'inherit'
+                'background-color': function(d,i){
+                    return _.isNull(d.content) ? 'hsl(0,50%,80%)' : ''
                 }
             })
         files.select('.name')
