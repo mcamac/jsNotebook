@@ -128,7 +128,7 @@ module.exports = function render_block(){
 
                 var value = cm.doc.getValue()
                 try {
-                    eval.call(window, value)
+                    var r = eval.call(window, value)
                 } catch(e) {
                     sel.select('.ctn-output')
                         .append('div')
@@ -136,6 +136,7 @@ module.exports = function render_block(){
                         .text('error: '+ e.message)
                     return
                 }
+                print(r)
                 sel.select('.ok')
                     .style({opacity: 1})
                     .transition()

@@ -18,6 +18,7 @@ module.exports = function ctrl_main(){
 
         d3.select('.btn-fullClean')
             .on('click', function(){
+                delete localStorage.notebook
                 main.render(_.cloneDeep(emptyData))
             })
 
@@ -31,6 +32,9 @@ module.exports = function ctrl_main(){
 
         initFiles()
         this.render(data)
+
+        d3.select('.blocks')
+            .selectAll('.eval').each(function(){ this.click() })
 
         return main
     }

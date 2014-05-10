@@ -15,6 +15,7 @@ module.exports = function render_base(){
     // OPTS
     // 'fullscreen' height for the container
     main.setSvg = function (sel, opts) {
+        sel.classed('wrp-vis', true)
         var fullWidth = this.width + this.left + this.right,
             fullHeight = this.height + this.top + this.bottom
         opts = opts ? opts : {}

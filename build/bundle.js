@@ -9905,6 +9905,7 @@ module.exports = function ctrl_main(){
 
         d3.select('.btn-fullClean')
             .on('click', function(){
+                delete localStorage.notebook
                 main.render(_.cloneDeep(emptyData))
             })
 
@@ -9989,7 +9990,7 @@ module.exports = function ctrl_main(){
     return main
 }
 
-},{"./dragAndDrop":12,"./emptyNotebookData":13,"./render_block":15,"./render_files":16}],12:[function(require,module,exports){
+},{"./dragAndDrop":12,"./emptyNotebookData":13,"./render_block":16,"./render_files":17}],12:[function(require,module,exports){
 
 module.exports = function dragAndDrop(){
 
@@ -10117,18 +10118,308 @@ ctrlMain.init(emptyData)
 //////////
 
 var methods = {
-    print: function(string){
+    print: function(string, sel){
+        sel = sel ? sel : _sel
         if (_.isObject(string)) {
             string = JSON.stringify(string)
         }
-        _sel.append('div')
+        sel.append('div')
             .classed('print', true)
             .text(string)
+    },
+    inject: function(string) {
+        script = document.createElement('script');
+        script.type = 'text/javascript';
+        script.async = true;
+        script.onload = callback(_sel)
+        function callback(sel) {
+            return function () {
+                print('script loaded', sel)
+            }
+        }
+        script.src = string;
+        document.getElementsByTagName('head')[0].appendChild(script);
+    },
+    lc: {
+        pLine: pLine
     }
 }
-
 _.extend(window, methods)
-},{"./ctrl_main":11,"./emptyNotebookData":13}],15:[function(require,module,exports){
+
+
+var render_base = require('./render_base')()
+
+module.exports = function render_vis(){
+    var main = {}
+    _.extend(main, render_base)
+    main.render = function(sel, data) {
+
+        return main
+    }
+    return main
+}
+
+////////////////////
+// super pLine plot
+
+function pLine(_opts) {
+    var opts = {
+        d: [1,20,3,40,5],
+        sel: _sel,
+        y: '',
+        x: function(d,i){return i},
+        values: '',
+        xScale: 'linear',
+        yScale: 'linear',
+        xDomain: 'extent',
+        yDomain: 'extent',
+        h: .5
+    }
+    _.extend(opts, _opts)
+
+    var main = {}
+    _.extend(main, render_base)
+
+    main.render = function(){
+        // wrap data if needed
+        var data = opts.d
+        if (_.all(data, _.isObject) && opts.values == '') {
+            data = [data]
+        }
+        if (_.all(data, _.isNumber)) {
+            data = [data]
+        }
+
+
+        // set basics
+        var sel = _sel.append('div')
+
+        var box = {width: 700, height: 350, top:10, left: 10, right:40, bottom: 20}
+        box.height = box.width*opts.h
+
+        this.svgBox(box)
+        this.setSvg(sel)
+
+        // set Accessors
+        var acc = {
+            x: opts.x,
+            y: opts.y,
+            values: opts.values
+        }
+        _.each(acc, function(d, i, array){
+            if (_.isFunction(d)) return
+            if (d == '_index') {
+                array[i] = function(d,i){return i}
+                return
+            }
+            if (_.isString(d) || _.isNull(d)) return array[i] = main.accFromString(d)
+        })
+        //scales
+        x = d3.scale[opts.xScale]()
+            .range([0, this.width])
+            .domain(getDomain(opts.xDomain, acc.x))
+        var xAxis = d3.svg.axis()
+            .scale(x)
+            .ticks(main.width/80, ',.1s')
+            .orient('bottom')
+
+        y = d3.scale[opts.yScale]()
+            .range([this.height, 0])
+            .domain(getDomain(opts.yDomain, acc.y))
+        var yAxis = d3.svg.axis()
+            .scale(y)
+            // .ticks(main.width/80, ',.1s')
+            .orient('right')
+
+        // other
+        line = d3.svg.line()
+            .x(function(d,i){return x(acc.x(d,i))})
+            .y(function(d,i){return y(acc.y(d,i))})
+
+        //
+        // render
+        //
+        var g = sel.select('g.main')
+        var gLines = g.append('g').classed('lines', true)
+            .selectAll('path').data(data)
+        gLines.enter().append('path')
+            .attr('d', function(d,i){
+                return line(acc.values(d))
+            })
+            .style({
+                fill: 'none',
+                stroke: 'black'
+            })
+
+        // axis
+        g.append('g')
+            .classed('axis', true)
+            .attr('transform', 'translate(0,'+main.height+')')
+            .call(xAxis)
+        g.append('g')
+            .classed('axis', true)
+            .attr('transform', 'translate('+main.width+',0)')
+            .call(yAxis)
+
+        // labels
+        g.append('text')
+            .classed('label', true)
+            .attr('transform', 'translate(0,'+(main.height-5)+')')
+            .text(function () {
+                if (opts.xName) return opts.xName
+                if (_.isString(opts.x)) return opts.x
+                return ''
+            })
+        g.append('text')
+            .classed('label', true)
+            .attr({
+                'transform': 'translate('+(main.width-7)+','+(main.height-5)+') rotate(-90)',
+                'text-anchor': 'start'
+            })
+            .text(function () {
+                if (opts.yName) return opts.yName
+                if (_.isString(opts.y)) return opts.y
+                return ''
+            })
+
+        function getDomain(domainType, _acc){
+            var max = d3.max(data, function(d,i){
+                return d3.max(acc.values(d), _acc)
+            })
+            var min = d3.min(data, function(d,i){
+                return d3.min(acc.values(d), _acc)
+            })
+            if (domainType == 'zero') {
+                return [d3.min([0,min]), d3.max([0, max])]
+            }
+            if (domainType == 'extent') {
+                return [min, max]
+            }
+            print('invalid domainType')
+        }
+
+    }
+
+    main.accFromString = function (string){
+        var identityAcc = function(d){ return d }
+        if (string == '') return identityAcc
+        if (_.isNull(string)) return identityAcc
+        if (string == 'index') return function(d,i){return i}
+        var path = string.split('.')
+        return _.reduce(path, function(acc, string){
+            return function(d){
+                return acc(d)[string]
+            }
+        }, identityAcc)
+    }
+
+    main.render()
+
+}
+
+
+},{"./ctrl_main":11,"./emptyNotebookData":13,"./render_base":15}],15:[function(require,module,exports){
+
+module.exports = function render_base(){
+
+    var main = {width: 500, height: 500, left: 1, right: 1, top: 1, bottom: 1}
+
+    main.render = function(sel, data) {
+
+        return main
+    }
+
+    // receives d3 selection of a .wrp-vis (that must be always 100% width)
+    // this method set the wrapper padding-bottom, 
+    // the svg viewBox and the g.main translate
+    // if it don't find a svg or g.main it creates one
+    // OPTS
+    // 'fullscreen' height for the container
+    main.setSvg = function (sel, opts) {
+        sel.classed('wrp-vis', true)
+        var fullWidth = this.width + this.left + this.right,
+            fullHeight = this.height + this.top + this.bottom
+        opts = opts ? opts : {}
+        if (opts.fullscreen) {
+            sel.style({height: '100%'})
+        } else {
+            sel.style({'padding-bottom': fullHeight/fullWidth*100 + '%'})
+        }
+        // svg
+        var svg = sel.select('svg')
+        if (svg.empty()) {
+            svg = sel.append('svg')
+        }
+        svg.attr({
+            // width: fullWidth, height: fullHeight
+            viewBox: '0 0 '+fullWidth+' '+fullHeight,
+            preserveAspectRatio: 'xMidYMid meet'
+        })
+        // g.main
+        var g = svg.select('g.main')
+        if (g.empty()) {
+            g = svg.append('g').classed('main', true)
+        }
+        g.attr({
+            transform: 'translate('+this.left+','+this.top+')'
+        })
+    }
+
+    main.setG = function (sel) {
+        sel.attr({
+            transform: 'translate('+this.left+','+this.top+')'
+        })
+    }
+
+    // functions for setting the box of the vis
+    // receive an object with width, height, left, right, top, bottom
+    main.svgBox = function (arg) {
+        if (arguments.length==0) return this._getBox()
+        this._setBox(arg)
+        if (arg.width) this.width = arg.width - this.left - this.right
+        if (arg.height) this.height = arg.height - this.top - this.bottom
+        return main
+    }
+    main.gBox = function (arg) {
+        if (arguments.length==0) return this._getBox()
+        this._setBox(arg)
+        return main
+    }
+    // helpers
+    main._setBox = function (arg){
+        if (arg.left) this.left = arg.left
+        if (arg.right) this.right = arg.right
+        if (arg.top) this.top = arg.top
+        if (arg.bottom) this.bottom = arg.bottom
+        if (arg.width) this.width = arg.width
+        if (arg.height) this.height = arg.height
+    }
+    main._getBox = function (){
+        return {width: this.width, height: this.height, left: this.left, right: this.right, top: this.top, bottom: this.bottom}
+    }
+
+    _.extend(main, {})
+
+    return main
+}
+
+// base for new rendering modules
+/*
+
+var base = require('./render_base')()
+
+module.exports = function render_vis(){
+    var main = {}
+    _.extend(main, render_base)
+    main.render = function(sel, data) {
+
+        return main
+    }
+    return main
+}
+
+*/
+},{}],16:[function(require,module,exports){
 var CodeMirror = require('../bower_components/codemirror/lib/codemirror.js')
 require('../bower_components/codemirror/mode/javascript/javascript.js')
 require('../bower_components/codemirror/keymap/sublime.js')
@@ -10259,7 +10550,7 @@ module.exports = function render_block(){
 
                 var value = cm.doc.getValue()
                 try {
-                    eval.call(window, value)
+                    var r = eval.call(window, value)
                 } catch(e) {
                     sel.select('.ctn-output')
                         .append('div')
@@ -10267,6 +10558,7 @@ module.exports = function render_block(){
                         .text('error: '+ e.message)
                     return
                 }
+                print(r)
                 sel.select('.ok')
                     .style({opacity: 1})
                     .transition()
@@ -10281,7 +10573,7 @@ module.exports = function render_block(){
 
     return main
 }
-},{"../bower_components/codemirror/addon/comment/comment.js":1,"../bower_components/codemirror/addon/edit/closebrackets.js":2,"../bower_components/codemirror/addon/edit/matchbrackets.js":3,"../bower_components/codemirror/addon/hint/javascript-hint.js":4,"../bower_components/codemirror/addon/hint/show-hint.js":5,"../bower_components/codemirror/addon/selection/active-line.js":7,"../bower_components/codemirror/keymap/sublime.js":8,"../bower_components/codemirror/lib/codemirror.js":9,"../bower_components/codemirror/mode/javascript/javascript.js":10}],16:[function(require,module,exports){
+},{"../bower_components/codemirror/addon/comment/comment.js":1,"../bower_components/codemirror/addon/edit/closebrackets.js":2,"../bower_components/codemirror/addon/edit/matchbrackets.js":3,"../bower_components/codemirror/addon/hint/javascript-hint.js":4,"../bower_components/codemirror/addon/hint/show-hint.js":5,"../bower_components/codemirror/addon/selection/active-line.js":7,"../bower_components/codemirror/keymap/sublime.js":8,"../bower_components/codemirror/lib/codemirror.js":9,"../bower_components/codemirror/mode/javascript/javascript.js":10}],17:[function(require,module,exports){
 module.exports = function render_files(){
 
     var dispatch = d3.dispatch('delete')

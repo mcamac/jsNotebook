@@ -46,7 +46,7 @@ module.exports = function dragAndDrop(){
                     dispatch.drop({
                         content: data,
                         name: _.first(file.name.split('.')),
-                        type: 'csv',
+                        type: 'json',
                         size: file.size,
                         date: file.lastModifiedDate
                     })
