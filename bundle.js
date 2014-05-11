@@ -9920,8 +9920,12 @@ module.exports = function ctrl_main(){
         initFiles()
         this.render(data)
 
+        // run all evals on the page
         d3.select('.blocks')
             .selectAll('.eval').each(function(){ this.click() })
+
+        window._sel = d3.select('.ctn-output')
+        window._node = window._sel.node()
 
         return main
     }
@@ -9993,7 +9997,756 @@ module.exports = function ctrl_main(){
     return main
 }
 
-},{"./dragAndDrop":12,"./emptyNotebookData":13,"./render_block":18,"./render_files":19}],12:[function(require,module,exports){
+},{"./dragAndDrop":20,"./emptyNotebookData":21,"./render_block":27,"./render_files":28}],12:[function(require,module,exports){
+//construct app data
+module.exports = function (dataContainer) {
+
+    // create first formatData
+    var formatData = {
+        name:'data',
+        seq: []
+    }
+
+    // run choose
+    choose({
+        formatData: formatData,
+        data: dataContainer[0].data
+    })
+    return  [formatData]
+}
+
+function choose (opts) {
+    var formatData = opts.formatData
+    var data = opts.data
+
+    //help functions
+    function numberCheck (d,i){ 
+        return _.isNumber(d) || _.isNull(d)
+    }
+    function mapArrayToObj(d,i){
+        var o = {}
+        _.each(d, function(d,i){ o[i] = d })
+        return o
+    }
+
+    ///////////////////////
+    //is the data an array?
+    if (_.isArray(data)) {
+        //
+        //is it an array of arrays?
+        if (_.all(data, _.isArray)) {
+            //is it an array of arrays of dates?
+            if (_.all(data, function(d,i){ return _.all(d, _.isDate) })) {
+                _.last(formatData.seq).type = 'date'
+                formatData.def = 'date'
+                formatData.type = 'date'
+                formatData.values = data
+            }
+            //is it an array of arrays of arrays?
+            if (_.all(data, function(d,i){ return _.all(d, _.isArray) })) {
+                // if it's an array of arrays of arrays with <= 2 numbers
+                if (_.all(_.flatten(data, true), function(d,i){ return d.length <=2 })) {
+                    // convert the last array to an object
+                    // and re-run the choose
+                    var data = _.map(data, function(d,i){
+                        return _.map(d, function(d,i){
+                            var o = {}
+                            _.each(d, function(d,i){ o[i] = d })
+                            return o
+                        })
+                    })
+                    // _.last(formatData.seq).type = 'array'
+                    choose({
+                        formatData: formatData,
+                        data: data
+                    })
+                } else {
+                    // else
+                    // too much dimensions, merge and re-run the choose
+                    _.last(formatData.seq).type = 'array'
+                    choose({
+                        formatData: formatData,
+                        data: _.flatten(data, true)
+                    })
+                }
+            }
+            //is it an array of arrays of objects?
+            if (_.all(data, function(d,i){ return _.all(d, _.isPlainObject) })) {
+
+                // create the def
+                if (!formatData.type) {
+                    formatData.type = 'array'
+                    formatData.arrayLength = d3.max(data, function(d,i){return d.length})
+                }
+
+                var keys = _(data).flatten()
+                    .map(function(d,i){return _.keys(d)})
+                    .flatten().uniq()
+                    .value()
+                var rows = _.map(keys, function(key){
+                    var values = _.map(data, function(d,i){
+                            return _.map(d, function(d,i){
+                                return d[key]
+                            })
+                        })
+                    var seq = _.clone(formatData.seq)
+                    seq.push({name: key, id: _.uniqueId()})
+                    var row = {
+                        name: key,
+                        seq: seq
+                    }
+                    choose({
+                        formatData: row,
+                        data: values
+                    })
+                    return row
+                })
+                if (!_.last(formatData.seq).type) {
+                    _.last(formatData.seq).type = 'object'
+                    formatData.type = 'object'
+                }
+                formatData.rows = rows
+            }
+            //is it an array of arrays of strings?
+            if (_.all(data, function(d,i){ return _.all(d, _.isString) })) {
+                _.last(formatData.seq).type = 'string'
+                formatData.type = 'string'
+                formatData.values = data
+            }
+            //is it an array of arrays of numbers?
+            if (_.all(data, function(d,i){ return _.all(d, numberCheck) })) {
+                _.last(formatData.seq).type = 'number'
+                formatData.type = 'number'
+                formatData.values = data
+            }
+        }
+        //
+        //is it an array of objects?
+        if (_.all(data, _.isPlainObject)) {
+            // wrap it in an array and re-run the choose
+            formatData.seq.push({
+                name: 'data',
+                type: 'array',
+                id: _.uniqueId()
+            })
+            choose({
+                formatData: formatData,
+                data: [data]
+            })
+        }
+        //
+        //is it an array of strings?
+        if (_.all(data, _.isString)) {
+            // wrap it in an array and re-run the choose
+            choose({
+                formatData: formatData,
+                data: [data]
+            })
+        }
+        //
+        //is it an array of numbers?
+        if (_.all(data, numberCheck)) {
+            // wrap it in an array and re-run the choose
+            choose({
+                formatData: formatData,
+                data: [data]
+            })
+        }
+    }
+    /////////////////////////
+    //is the data an object?
+    if (_.isPlainObject(data)) {
+        formatData.seq.push({
+            name: 'data',
+            type: 'object', 
+            id: _.uniqueId()
+        })
+        formatData.type = 'object'
+        choose({
+            formatData: formatData,
+            data: [[data]]
+        })
+    }
+    //is the data a string?
+    if (_.isString(data)) {
+        formatData.type = 'string'
+        formatData.values = data
+    }
+    //is the data a number?
+    if (_.isNumber(data)) {
+        formatData.type = 'number'
+        formatData.values = data
+    }
+}
+},{}],13:[function(require,module,exports){
+// getAppDataNodes
+
+var bxs = require('./vars').nodeElemBoxes
+var nodeSize = bxs.size
+
+
+module.exports = function getAppDataNodes (appData) {
+
+    var nodes = flattenNodes(appData[0])
+    _.each(nodes, function(d,i){
+        d.leafNodes = getLeafNodesLength(d)
+        d.x = d.depth*nodeSize[0]
+    })
+    setRowsYPos(appData, 0)
+    _.each(nodes, function(d,i){
+        delete d.leafNodes
+        delete d.depth
+    })
+
+    return nodes
+}
+
+// traverse the rows struc setting up the y pos using reduce
+// it need the leafNodes variable
+function setRowsYPos (rows, initY) {
+    _.reduce(rows, function(acc,d,i){
+        d.y = acc
+        if (d.rows) setRowsYPos(d.rows, acc)
+        return acc+(nodeSize[1]*d.leafNodes)
+    }, initY)
+}
+
+// return an array of nodes and set their depth
+function flattenNodes (firstNode) {
+    firstNode.depth = 0
+    var nodes = [firstNode]
+    if (firstNode.rows) addRows(firstNode.rows, 0)    
+    function addRows (rows, depth) {
+        _.each(rows, function(d,i){
+            d.depth = depth+1
+            nodes.push(d)
+            if (d.rows) addRows(d.rows, depth+1)
+        })
+    }
+    return nodes
+}
+
+// count the number of leaf nodes from any node
+function getLeafNodesLength (node) {
+    var data = [node]
+    if (_.any(data, function(d,i){return d.rows})) flattenRows(data)
+    function flattenRows (_data){
+        data = _(_data)
+            .map(function(d,i){
+                if (d.rows) return d.rows
+                return d
+            }).flatten().value()
+        if (_.any(data, function(d,i){return d.rows})) flattenRows(data)
+    }
+    return data.length
+}
+},{"./vars":19}],14:[function(require,module,exports){
+//render linksConnects
+
+var bxs = require('./vars').nodeElemBoxes
+
+module.exports = function (data) {
+    var line = d3.svg.line()
+        .interpolate('step-before')
+    var linksSData = []
+    var linksSBefData = []
+    _.each(data, function(node,i){
+        if (node.type == 'array') {
+            var f = _.first(node.rows)
+            var l = _.last(node.rows)
+            linksSBefData.push([
+                [
+                    f.x - bxs.space/2-2, 
+                    f.y + bxs.nameCont.y+3
+                ],
+                [
+                    f.x - bxs.space/2 - 6, 
+                    f.y + bxs.nameCont.y+3
+                ],
+                [
+                    f.x - bxs.space/2 - 6, 
+                    l.y + bxs.nameCont.y + bxs.nameCont.h-3
+                ],
+                [
+                    f.x - bxs.space/2-2, 
+                    l.y + bxs.nameCont.y + bxs.nameCont.h-3
+                ],
+            ])
+            linksSBefData.push([
+                [
+                    node.x + bxs.typeCont.x + bxs.typeCont.w, 
+                    node.y + bxs.nameCont.y + bxs.nameCont.h/2
+                ],
+                [
+                    node.x + bxs.typeCont.x + bxs.typeCont.w + 6, 
+                    node.y + bxs.nameCont.y + bxs.nameCont.h/2
+                ]
+            ])
+            _.each(node.rows, function(row,i){
+                linksSBefData.push([
+                    [
+                        node.x + bxs.typeCont.x + bxs.typeCont.w + bxs.space/2 +4, 
+                        node.y + bxs.nameCont.y + bxs.nameCont.h/2
+                    ],
+                    [
+                        row.x, 
+                        row.y + bxs.nameCont.y + bxs.nameCont.h/2
+                    ]
+                ])
+            })
+        } else {
+            _.each(node.rows, function(row,i){
+                linksSData.push([
+                    [
+                        node.x + bxs.typeCont.x + bxs.typeCont.w, 
+                        node.y + bxs.nameCont.y + bxs.nameCont.h/2
+                    ],
+                    [
+                        row.x, 
+                        row.y + bxs.nameCont.y + bxs.nameCont.h/2
+                    ]
+                ])
+            })
+        }
+        if (!node.rows) {
+            linksSData.push([
+                [
+                    node.x + bxs.typeCont.x + bxs.typeCont.w, 
+                    node.y + bxs.nameCont.y + bxs.nameCont.h/2
+                ],
+                [
+                    node.x + bxs.plot.x, 
+                    node.y + bxs.nameCont.y + bxs.nameCont.h/2
+                ]
+            ])
+        }
+    })
+    line.interpolate('step-before')
+    var linksSBef = d3.select('.connectionsContainer svg')
+        .selectAll('path.linkSBef').data(linksSBefData)
+    linksSBef.enter().append('path')
+        .classed('linkSBef', true)
+    linksSBef.attr({
+            d: line
+        })
+        .style({
+            fill: 'none',
+            stroke: 'black',
+            'shape-rendering': 'crispEdges'
+        })
+    linksSBef.exit().remove()
+    line.interpolate('step')
+    var linksS = d3.select('.connectionsContainer svg')
+        .attr({
+            width: d3.max(data, function(d,i){return d.x})+35,
+            height: d3.max(data, function(d,i){return d.y})+35
+        })
+        .selectAll('path.linkS').data(linksSData)
+    linksS.enter().append('path')
+        .classed('linkS', true)
+    linksS.attr({
+            d: line
+        })
+        .style({
+            fill: 'none',
+            stroke: 'black',
+            'shape-rendering': 'crispEdges'
+        })
+    linksS.exit().remove()
+}
+},{"./vars":19}],15:[function(require,module,exports){
+var bxs = require('./vars').nodeElemBoxes
+
+var renderTypeConf = require('./render_typeCont')
+var renderPlot = require('./render_plot')
+var renderlinksConnects = require('./render_linksConnects')
+
+var renderNodes = module.exports = function (data, sel) {
+
+    var nodes = sel.selectAll('.node')
+        .data(data)
+
+    nodes.enter()
+        .append(function(){
+            return document.querySelector('#temp-node .node').cloneNode(true)
+        })
+    nodes.style({
+            left: function(d,i){return d.x+'px'},
+            top: function(d,i){return d.y+'px'}
+        })
+    nodes.select('.nameCont')
+        .text(function(d,i){return d.name})
+        .attr({title: function(d,i){return d.name}})
+        .style(updateElemBox(bxs.nameCont))
+        .on('click', function(d,i){ 
+            console.log(JSON.stringify(d.seq))  
+        })
+
+    nodes.select('.typeCont')
+        .style(updateElemBox(bxs.typeCont))
+        .call(renderTypeConf)
+
+    nodes
+        .call(renderPlot)
+        // .select('.plot')
+        // .style(updateElemBox(bxs.plot))
+
+    nodes.exit().remove()
+
+    renderlinksConnects(data)
+
+}
+
+var updateElemBox = function updateElemBox(d) {
+    return {
+        left: d.x+'px',
+        top: d.y+'px',
+        width: d.w+'px',
+        height: d.h+'px'
+    }
+}
+},{"./render_linksConnects":14,"./render_plot":16,"./render_typeCont":18,"./vars":19}],16:[function(require,module,exports){
+// renderPlot
+
+var renderPlotNumber = require('./render_plotNumber')
+var box = require('./vars').nodeElemBoxes.plot
+var margin = require('./vars').margins.plot
+
+module.exports = function (sel) {
+    sel.each(each)
+}
+
+function each (data) {
+    var sel = d3.select(this)
+
+    if (!data.values) {
+        sel.select('.plot').remove()
+        return
+    }
+
+    if (sel.select('.plot').empty()) {
+        sel.append(function () {
+            return document.querySelector('#temp-plot .plot').cloneNode(true)
+        })
+    }
+
+    sel = sel.select('.plot')
+        .style({
+            left: box.x+'px',
+            top: box.y+'px',
+            width: box.w+'px',
+            height: box.h+'px'
+        })
+
+    var width = box.w - margin.l - margin.r,
+        height = box.h - margin.t - margin.b
+
+    sel.selectAll('svg, canvas')
+        .attr({
+            width: box.w+'px', height: box.h+'px'
+        })
+    sel.select('g.main')
+        .attr({transform: 'translate('+margin.l+','+margin.t+')'})
+
+    sel.select('rect.background')
+        .attr({
+            x: 0, y: 0,
+            width: width, height: height
+        })
+
+    if (data.type == 'number') renderPlotNumber(data, sel)
+    // if (data.type == 'aas') renderAas(data, sel)
+}
+},{"./render_plotNumber":17,"./vars":19}],17:[function(require,module,exports){
+var box = require('./vars').nodeElemBoxes.plot
+var margin = require('./vars').margins.plot
+
+module.exports = function renderPlotNumber(data, sel) {
+
+    var width = box.w - margin.l - margin.r,
+        height = box.h - margin.t - margin.b
+
+    var gutter = 15
+    var plotBox = {
+        width: width*0.8 - gutter,
+        height: height,
+        top: 0, left: 0
+    }
+    var histBox = {
+        width: width - plotBox.width - gutter - 5,
+        height: height,
+        top: 0, left: plotBox.width + gutter
+    }
+
+    var color = d3.scale.category20()
+
+    var max = d3.max(data.values, function(d,i){return d3.max(d)}),
+        min = d3.min(data.values, function(d,i){return d3.min(d)}),
+        mean = d3.mean(data.values, function(d,i){return d3.mean(d)}),
+        maxLength = d3.max(data.values, function(d,i){return d.length})
+
+    var xPlot = d3.scale.linear()
+        .domain([0, maxLength])
+        .rangeRound([0, plotBox.width])
+    var yPlot = d3.scale.linear()
+        .domain([min, max])
+        .rangeRound([plotBox.height, 0])
+
+    var line = d3.svg.line()
+        .x(function(d,i){return xPlot(i)})
+        .y(function(d,i){return yPlot(d)})
+        .defined(function(d,i){return !_.isNull(d)})
+
+    var histogram = d3.layout.histogram()
+        .bins(15)
+        (_(data.values)
+            .flatten(true)
+            .filter(function(d,i){
+                return !_.isNull(d) && !_.isUndefined(d) && !_.isNaN(d)
+            })
+            .value())
+    
+    var xHist = d3.scale.linear()
+        .domain([0, _.max(histogram, 'y').y])
+        .range([0, histBox.width])
+
+    //
+    // transform data
+    //
+    var canvasData = _.map(data.values, function(array,i){
+        var points = _.map(array, function(d,i){
+                return [
+                    xPlot(i),
+                    yPlot(d)
+                ]
+            })
+        var line
+        if (array.length > plotBox.width) {
+            line = _(points)
+                .groupBy(function(d,i){
+                    return d[0] - d[0]%4
+                })
+                .map(function(d,i){
+                    return [
+                        +i,
+                        d3.mean(d, function(d,i){return d[1]})
+                    ]
+                })
+                .value()
+        } else {
+            line = points
+        }
+
+        return {
+            points: points,
+            line: line
+        }
+    })
+    if (maxLength > plotBox.width) {
+        var pointsData = _(canvasData)
+            .pluck('points').flatten(true)
+            .groupBy(function(d,i){
+                return (d[0]-d[0]%2) + '|' + (d[1]-d[1]%2)
+            })
+            .map(function(d,i){
+                var pos = i.split('|')
+                var arr = [+pos[0], +pos[1]]
+                arr.amount = d.length
+                return arr
+            })
+            .value()
+        var maxAmount = d3.max(pointsData, function(d,i){return d.amount})
+        var grayScale = d3.scale.linear()
+            .domain([1, maxAmount+1])
+            .range(["#a1dab0", "#43a2ca"])
+            .interpolate(d3.interpolateHcl)
+            .clamp(true)
+    }
+
+
+    //
+    //
+    //
+    var ctx = sel.select('canvas').node().getContext('2d')
+
+    ctx.fillStyle = 'gray'
+    ctx.lineWidth = 1
+    ctx.save()
+    ctx.clearRect(0,0,box.w, box.h)
+    ctx.translate(margin.l, margin.t)
+    if (maxLength > plotBox.width) {
+        _.each(pointsData, function(d,i){
+            ctx.fillStyle = grayScale(d.amount)
+            ctx.fillRect(d[0], d[1], 2, 2)
+        })
+    }
+    _.each(canvasData, function(group,i){
+        if (data.values.length > 10) {
+            ctx.strokeStyle = 'hsla(0,0%,20%,'+(1/(data.values.length/40))+')'
+        } else {
+            ctx.strokeStyle = 'hsl(0,0%,20%)'
+        }
+        ctx.beginPath()
+        _.each(group.line, function(d,i){
+            if (i==0) {
+                ctx.moveTo(d[0],d[1])
+            } else {
+                ctx.lineTo(d[0],d[1])
+            }
+        })
+        ctx.stroke()
+    })
+    ctx.restore()
+
+    // update paths
+    // var paths = sel.select('g.plots')
+    //     .selectAll('path').data(data.values)
+    // paths.enter().append('path')
+    // paths.attr('d', line)
+    //     .style({
+    //         fill: 'none', 
+    //         stroke: function(d,i){return color(i)}
+    //     })
+    // paths.exit().remove()
+
+    // histogram
+    var histBars = sel.select('g.histogram')
+        .attr({ transform: 'translate('+histBox.left+','+histBox.top+')' })
+        .selectAll('rect').data(histogram)
+    histBars.enter().append('rect')
+        .classed('histBar', true)
+    histBars.exit().remove()
+    histBars
+        .attr({
+            x: 0,
+            y: function(d,i){
+                return yPlot(d.x+d.dx)
+            },
+            width: function(d,i){
+                return xHist(d.y)
+            },
+            height: function(d,i){
+                return yPlot(d.x) - yPlot(d.x+d.dx)
+            }
+        })
+
+
+
+    //labelRight
+    var labelRight = sel.selectAll('g.labelRight')
+        .attr({ transform: 'translate('+(width)+',0)' })
+    labelRight.selectAll('path')
+        .attr({ d: 'M0,0 h5' })
+    labelRight.selectAll('text')
+        .attr({ x: 8, 'text-anchor': 'start', dy: '.35em' })
+
+    sel.select('g.labelRight .max')
+        .select('text')
+        .text(formatNumber(max))
+
+    sel.select('g.labelRight .min')
+        .attr({
+            transform: 'translate(0,'+height+')',
+        })
+        .select('text')
+        .text(formatNumber(min))
+    sel.select('g.labelRight .mean')
+        .attr({
+            transform: 'translate(0,'+yPlot(mean)+')',
+        })
+        .select('text')
+        .text(formatNumber(mean))
+
+}
+
+function formatNumber(d){
+    if (d == 0) {
+        return 0
+    }
+    if (d < 0.01 && d > -0.01) {
+        return d3.format('.0e')(d)
+    }
+    var f = d3.formatPrefix(d)
+    return d3.format('.0f')(f.scale(d))+' '+f.symbol
+}
+},{"./vars":19}],18:[function(require,module,exports){
+// render node typeCont
+
+var box = require('./vars').nodeElemBoxes.typeCont
+
+module.exports = function (sel) {
+    sel.each(each)
+}
+
+function each (d,i) {
+    var sel = d3.select(this)
+
+    if (d.type != 'array') sel.style({'background-color': 'hsl(0,0%,35%)'})
+ 
+
+    sel.select('svg')
+        .attr({
+            width: box.w, height: box.h
+        })
+    if (d.type == 'array') {
+    sel.select('svg')
+        .on('mousemove', function () {
+            var mouse = d3.mouse(this)
+            path.attr({transform: 'translate('+mouse[0]+',0)'})
+        })
+        .on('mouseleave', function () {
+            path
+                .transition()
+                .attr({transform: 'translate(-10,0)'})
+        })
+    }
+
+    sel.select('text')
+        .attr({
+            x: box.w/2,
+            y: box.h/2,
+            'text-anchor': 'middle',
+            dy: '.30em'
+        })
+        .text(function(){
+            if (d.type == 'array') {
+                var f = d3.formatPrefix(d.arrayLength)
+                return d3.format('.0f')(f.scale(d.arrayLength))+''+f.symbol
+            }
+            if (d.type == 'object') return '{}'
+            return d.type
+        })
+
+    var path = sel.select('path')
+        .attr({
+            d: 'M0,1 v'+(box.h-2),
+            transform: 'translate(-10,0)'
+        })
+}
+},{"./vars":19}],19:[function(require,module,exports){
+// variables used across the app
+
+// node elements boxes
+var bxs = exports.nodeElemBoxes = {
+    nameCont: {x:0, y:0, w:100, h:25},
+    typeCont: {x:99, y:2, w:45, h:22},
+    plot: {x:0, y:0, w:315, h:65},
+    space: 25
+}
+
+bxs.nameCont.y = bxs.plot.h/2 - bxs.nameCont.h/2 - 4
+bxs.typeCont.x = bxs.nameCont.x + bxs.nameCont.w - 1
+bxs.typeCont.y = bxs.nameCont.y + 2
+bxs.typeCont.h = bxs.nameCont.h - 4
+
+bxs.plot.x = bxs.typeCont.x + bxs.typeCont.w + bxs.space
+
+bxs.size = [bxs.plot.x, bxs.plot.y + bxs.plot.h]
+
+exports.margins = {
+    plot: {t:7, b:7, l:0, r:35}
+}
+},{}],20:[function(require,module,exports){
 
 module.exports = function dragAndDrop(){
 
@@ -10082,7 +10835,7 @@ module.exports = function dragAndDrop(){
 
     return main
 }
-},{}],13:[function(require,module,exports){
+},{}],21:[function(require,module,exports){
 // empty notebook data
 module.exports = {
     meta: {},
@@ -10102,7 +10855,25 @@ module.exports = {
         }
     ]
 }
-},{}],14:[function(require,module,exports){
+},{}],22:[function(require,module,exports){
+var constructAppData = require('./dataFormat/constructAppData')
+var getAppDataNodes = require('./dataFormat/getAppDataNodes')
+var renderNodes = require('./dataFormat/render_nodes')
+
+module.exports = function (data, _opts) {
+
+    // var data = func(jsonStringParse(originalStringData))
+
+    // construct app data
+    var appData = constructAppData([{data:data}])
+
+    var nodes = getAppDataNodes(appData)
+
+    // render vis structure
+    renderNodes(nodes, d3.select('.graph'))
+
+}
+},{"./dataFormat/constructAppData":12,"./dataFormat/getAppDataNodes":13,"./dataFormat/render_nodes":15}],23:[function(require,module,exports){
 var render_base = require('./render_base')()
 
 module.exports = function pLine(_opts) {
@@ -10271,7 +11042,7 @@ module.exports = function pLine(_opts) {
     main.render()
 
 }
-},{"./render_base":17}],15:[function(require,module,exports){
+},{"./render_base":26}],24:[function(require,module,exports){
 
 var ctrlMain = require('./ctrl_main')()
 var emptyData = require('./emptyNotebookData')
@@ -10288,8 +11059,9 @@ if (localStorage.notebook) {
 }
 
 ctrlMain.init(emptyData)
-},{"./ctrl_main":11,"./emptyNotebookData":13,"./methods":16}],16:[function(require,module,exports){
+},{"./ctrl_main":11,"./emptyNotebookData":21,"./methods":25}],25:[function(require,module,exports){
 // methods
+var plot = require('./lc_dataFormat')
 var pLine = require('./lc_pLine')
 
 var methods = {
@@ -10316,12 +11088,13 @@ var methods = {
         document.getElementsByTagName('head')[0].appendChild(script);
     },
     lc: {
+        plot: plot,
         pLine: pLine
     }
 }
 
 _.extend(window, methods)
-},{"./lc_pLine":14}],17:[function(require,module,exports){
+},{"./lc_dataFormat":22,"./lc_pLine":23}],26:[function(require,module,exports){
 
 module.exports = function render_base(){
 
@@ -10422,7 +11195,7 @@ module.exports = function render_vis(){
 }
 
 */
-},{}],18:[function(require,module,exports){
+},{}],27:[function(require,module,exports){
 var CodeMirror = require('../bower_components/codemirror/lib/codemirror.js')
 require('../bower_components/codemirror/mode/javascript/javascript.js')
 require('../bower_components/codemirror/keymap/sublime.js')
@@ -10576,7 +11349,7 @@ module.exports = function render_block(){
 
     return main
 }
-},{"../bower_components/codemirror/addon/comment/comment.js":1,"../bower_components/codemirror/addon/edit/closebrackets.js":2,"../bower_components/codemirror/addon/edit/matchbrackets.js":3,"../bower_components/codemirror/addon/hint/javascript-hint.js":4,"../bower_components/codemirror/addon/hint/show-hint.js":5,"../bower_components/codemirror/addon/selection/active-line.js":7,"../bower_components/codemirror/keymap/sublime.js":8,"../bower_components/codemirror/lib/codemirror.js":9,"../bower_components/codemirror/mode/javascript/javascript.js":10}],19:[function(require,module,exports){
+},{"../bower_components/codemirror/addon/comment/comment.js":1,"../bower_components/codemirror/addon/edit/closebrackets.js":2,"../bower_components/codemirror/addon/edit/matchbrackets.js":3,"../bower_components/codemirror/addon/hint/javascript-hint.js":4,"../bower_components/codemirror/addon/hint/show-hint.js":5,"../bower_components/codemirror/addon/selection/active-line.js":7,"../bower_components/codemirror/keymap/sublime.js":8,"../bower_components/codemirror/lib/codemirror.js":9,"../bower_components/codemirror/mode/javascript/javascript.js":10}],28:[function(require,module,exports){
 module.exports = function render_files(){
 
     var dispatch = d3.dispatch('delete')
@@ -10664,4 +11437,4 @@ module.exports = function render_files(){
     d3.rebind(main, dispatch, 'on')
     return main
 }
-},{}]},{},[15])
+},{}]},{},[24])
