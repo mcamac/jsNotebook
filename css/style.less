@@ -4,6 +4,8 @@
 @import (inline) 'bower_components/codemirror/lib/codemirror.css';
 @import 'codemirror.less';
 
+@import 'dataFormat.less';
+
 @width: 960px;
 @half-gutter: 20px;
 
@@ -115,9 +117,10 @@ html {
 
 .ctn-output {
     .ctn();
-    max-width: 700px;
+    width: 700px;
     padding-left: 3*@half-gutter;
     box-sizing: border-box;
+    user-select: all;
     .error {
         padding: 0 1.5*@half-gutter;
         color: red;

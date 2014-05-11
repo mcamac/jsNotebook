@@ -1,4 +1,5 @@
 // methods
+var plot = require('./lc_dataFormat')
 var pLine = require('./lc_pLine')
 
 var methods = {
@@ -25,6 +26,7 @@ var methods = {
         document.getElementsByTagName('head')[0].appendChild(script);
     },
     lc: {
+        plot: plot,
         pLine: pLine
     }
 }

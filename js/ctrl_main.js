@@ -33,8 +33,12 @@ module.exports = function ctrl_main(){
         initFiles()
         this.render(data)
 
+        // run all evals on the page
         d3.select('.blocks')
             .selectAll('.eval').each(function(){ this.click() })
+
+        window._sel = d3.select('.ctn-output')
+        window._node = window._sel.node()
 
         return main
     }

@@ -29,3 +29,31 @@
                     td.type
                     td.size
                     td.date
+
+// dataFormat
+
+#temp-node(style='display:none')
+    .node
+        .typeCont
+            svg
+                path
+                text
+        .nameCont
+#temp-plot(style='display:none')
+    .plot
+        svg
+            g.main
+                rect.background
+                g.plots
+                g.histogram
+                g.labelRight
+                    g.max
+                        path
+                        text
+                    g.mean
+                        path
+                        text
+                    g.min
+                        path
+                        text
+        canvas
