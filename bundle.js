@@ -10245,7 +10245,12 @@ function getLeafNodesLength (node) {
 
 var bxs = require('./vars').nodeElemBoxes
 
-module.exports = function (data) {
+module.exports = function (sel, data) {
+
+    var svg = sel.insert('div', '*')
+        .classed('connectionsContainer', true)
+        .append('svg')
+
     var line = d3.svg.line()
         .interpolate('step-before')
     var linksSData = []
@@ -10322,7 +10327,8 @@ module.exports = function (data) {
         }
     })
     line.interpolate('step-before')
-    var linksSBef = d3.select('.connectionsContainer svg')
+
+    var linksSBef = svg //d3.select('.connectionsContainer svg')
         .selectAll('path.linkSBef').data(linksSBefData)
     linksSBef.enter().append('path')
         .classed('linkSBef', true)
@@ -10336,10 +10342,16 @@ module.exports = function (data) {
         })
     linksSBef.exit().remove()
     line.interpolate('step')
-    var linksS = d3.select('.connectionsContainer svg')
+
+    sel
+       .style({
+           width: d3.max(data, function(d,i){return d.x})+585+'px',
+           height: d3.max(data, function(d,i){return d.y})+85+'px'
+       }) 
+    var linksS = svg //d3.select('.connectionsContainer svg')
         .attr({
             width: d3.max(data, function(d,i){return d.x})+35,
-            height: d3.max(data, function(d,i){return d.y})+35
+            height: d3.max(data, function(d,i){return d.y})+45
         })
         .selectAll('path.linkS').data(linksSData)
     linksS.enter().append('path')
@@ -10393,7 +10405,7 @@ var renderNodes = module.exports = function (data, sel) {
 
     nodes.exit().remove()
 
-    renderlinksConnects(data)
+    renderlinksConnects(_sel, data)
 
 }
 
@@ -10870,7 +10882,11 @@ module.exports = function (data, _opts) {
     var nodes = getAppDataNodes(appData)
 
     // render vis structure
-    renderNodes(nodes, d3.select('.graph'))
+    var sel = _sel.append('div')
+        .style({
+            position: 'relative'
+        })
+    renderNodes(nodes, sel)
 
 }
 },{"./dataFormat/constructAppData":12,"./dataFormat/getAppDataNodes":13,"./dataFormat/render_nodes":15}],23:[function(require,module,exports){

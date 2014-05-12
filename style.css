@@ -408,6 +408,127 @@ div.CodeMirror span.CodeMirror-matchingbracket {
 .cm-strong {
   font-weight: 600;
 }
+.button {
+  display: inline-block;
+  font-size: 13px;
+  border: 1px solid black;
+  border-radius: 4px;
+  padding: 6px 10px;
+  margin: 4px;
+  -webkit-box-shadow: 0px 1px 1px black;
+  box-shadow: 0px 1px 1px black;
+  cursor: pointer;
+  -webkit-transition: background-color 0.3s;
+  transition: background-color 0.3s;
+}
+.button:hover {
+  background-color: #ebebeb;
+}
+.button:active {
+  -webkit-box-shadow: 0px 0px 0px black;
+  box-shadow: 0px 0px 0px black;
+}
+.graph {
+  margin: 10px 20px;
+  -webkit-transition: opacity .3s;
+  transition: opacity .3s;
+  position: absolute;
+}
+.connectionsContainer {
+  position: absolute;
+}
+.node {
+  position: absolute;
+}
+.nameCont {
+  display: inline-block;
+  font-size: 13px;
+  border: 1px solid black;
+  border-radius: 4px;
+  padding: 6px 10px;
+  margin: 4px;
+  -webkit-box-shadow: 0px 1px 1px black;
+  box-shadow: 0px 1px 1px black;
+  cursor: pointer;
+  -webkit-transition: background-color 0.3s;
+  transition: background-color 0.3s;
+  position: absolute;
+  -webkit-box-sizing: border-box;
+  -moz-box-sizing: border-box;
+  box-sizing: border-box;
+  margin: 0;
+  padding: 4px 8px;
+  font-size: 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.nameCont:hover {
+  background-color: #ebebeb;
+}
+.nameCont:active {
+  -webkit-box-shadow: 0px 0px 0px black;
+  box-shadow: 0px 0px 0px black;
+}
+.typeCont {
+  position: absolute;
+  -webkit-box-sizing: border-box;
+  -moz-box-sizing: border-box;
+  box-sizing: border-box;
+  background-color: #333333;
+}
+.typeCont text {
+  font-size: 10px;
+  fill: white;
+  pointer-events: none;
+}
+.typeCont path {
+  stroke: lightgray;
+  stroke-width: 2;
+  shape-rendering: crispEdges;
+}
+.plot {
+  position: absolute;
+}
+.plot canvas,
+.plot svg {
+  position: absolute;
+}
+.plot .background {
+  fill: #f5f5f5;
+}
+.plot .histBar {
+  fill: #b3b3b3;
+}
+.plot .labelRight path {
+  shape-rendering: crispEdges;
+  stroke: black;
+}
+.plot .labelRight .mean path {
+  stroke-width: 2;
+}
+.plot .labelRight text {
+  font-size: 9px;
+}
+.flex-container {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+}
+.flex-container .menu {
+  position: fixed;
+  height: 100%;
+  width: 450px;
+  border-right: 1px solid black;
+  -webkit-box-shadow: 0px 0px 10px gray;
+  box-shadow: 0px 0px 10px gray;
+}
+.flex-container .graphCont {
+  height: 100%;
+  margin-left: 450px;
+  position: relative;
+  overflow: scroll;
+}
 html {
   font-family: "Whitney A", "Whitney B";
 }
@@ -528,11 +649,15 @@ html {
   min-height: 1px;
   margin: auto;
   padding: 0 20px;
-  max-width: 700px;
+  width: 700px;
   padding-left: 60px;
   -webkit-box-sizing: border-box;
   -moz-box-sizing: border-box;
   box-sizing: border-box;
+  -webkit-user-select: all;
+  -moz-user-select: all;
+  -ms-user-select: all;
+  user-select: all;
 }
 .ctn-output .error {
   padding: 0 30px;
